@@ -35,6 +35,10 @@ func (t *AccountRepo) GetById(id string) (*models.Account, error) {
 		return nil, err
 	}
 
+	if err := t.db.Preload("Bank").First(&account, "id = ?", account.ID).Error; err != nil {
+		return nil, err
+	}
+
 	return &account, nil
 }
 
@@ -57,6 +61,10 @@ func (t *AccountRepo) CreateAcc(acc *models.Account) (*models.Account, error) {
 		return nil, err
 	}
 
+	if err := t.db.Preload("Bank").First(acc, "id = ?", acc.ID).Error; err != nil {
+		return nil, err
+	}
+
 	return acc, nil
 }
 
@@ -67,6 +75,8 @@ func (t *AccountRepo) UpdateAcc(id uuid.UUID, accountHolder string, balance int)
 	if err != nil {
 		return nil, err
 	}
+
+	// if acc.
 
 	acc.AccountHolder = accountHolder
 	acc.Balance = balance

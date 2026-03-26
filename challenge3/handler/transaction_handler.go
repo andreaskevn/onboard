@@ -31,10 +31,11 @@ func (t *TransactionHandler) Transfer() http.HandlerFunc {
 			AccountFrom uuid.UUID `json:"from_account_id"`
 			AccountTo   uuid.UUID `json:"to_account_id"`
 			Amount      int       `json:"amount"`
+			AdminFee    int       `json:"admin_fee"`
 		}
 
 		body, err := io.ReadAll(r.Body)
-		fmt.Print(body)
+		// fmt.Print(body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -44,6 +45,14 @@ func (t *TransactionHandler) Transfer() http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(dto.BaseResponse{
 				Message: "Request body is empty",
+			})
+			return
+		}
+
+		if err := json.Unmarshal(body, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(dto.BaseResponse{
+				Message: "Invalid JSON",
 			})
 			return
 		}
@@ -86,7 +95,7 @@ func (t *TransactionHandler) Transfer() http.HandlerFunc {
 			return
 		}
 
-		if accountFromExist.Balance < req.Amount {
+		if accountFromExist.Balance < (req.Amount + req.AdminFee) {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(dto.BaseResponse{
 				Message: "Your balance is insufficient",
@@ -95,7 +104,21 @@ func (t *TransactionHandler) Transfer() http.HandlerFunc {
 			return
 		}
 
-		result, err := t.transactionService.Transfer(req.AccountFrom, req.AccountTo, req.Amount)
+		if accountFromExist.BankID != accountToExist.BankID {
+			if req.AdminFee <= 0 {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: "Admin Fee must included",
+					// Data:    accountToExist,
+				})
+				return
+			}
+		}
+		fmt.Print(&accountFromExist)
+		fmt.Print(&accountToExist)
+
+		result, err := t.transactionService.Transfer(req.AccountFrom, req.AccountTo, req.Amount, req.AdminFee)
+		result.AdminFee = req.AdminFee - (req.AdminFee * 2)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(dto.BaseResponse{
@@ -105,7 +128,7 @@ func (t *TransactionHandler) Transfer() http.HandlerFunc {
 			return
 		}
 
-		reduceBalance := accountFromExist.Balance - req.Amount
+		reduceBalance := accountFromExist.Balance - (req.Amount + req.AdminFee)
 		_, err = t.accountService.UpdateAcc(accountFromExist.ID, accountFromExist.AccountHolder, reduceBalance)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

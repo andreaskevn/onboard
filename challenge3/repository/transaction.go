@@ -17,13 +17,14 @@ func NewTransactionRepo(db *gorm.DB) *TransactionRepo {
 	return &TransactionRepo{db: db}
 }
 
-func (t *TransactionRepo) Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int) (*models.Transaction, error) {
+func (t *TransactionRepo) Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error) {
 	var tf models.Transaction
 
 	tf.ID = uuid.New()
 	tf.AccountFrom = accFrom
 	tf.AccountTo = accTo
 	tf.Amount = amount
+	tf.AdminFee = adminFee
 
 	err := t.db.Create(&tf).Error
 	if err != nil {

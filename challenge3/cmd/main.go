@@ -14,7 +14,8 @@ import (
 
 func main() {
 	db, err := config.InitDb()
-	db.AutoMigrate(&models.Account{}, &models.Transaction{})
+	db.AutoMigrate(&models.Account{}, &models.Transaction{}, &models.Bank{})
+	db.AutoMigrate(&models.Bank{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,14 +32,19 @@ func main() {
 	accountRepo := repository.NewAccountRepo(db)
 	accountService := service.NewAccountService(accountRepo)
 
+	bankRepo := repository.NewBankRepo(db)
+	bankService := service.NewBankService(bankRepo)
+
 	transactionRepo := repository.NewTransactionRepo(db)
 	transactionService := service.NewTransactionService(transactionRepo)
 
-	accountHandler := handler.NewAccountHandler(mux, transactionService, accountService)
+	accountHandler := handler.NewAccountHandler(mux, transactionService, accountService, bankService)
 	transactionHandler := handler.NewTransctionHandler(mux, transactionService, accountService)
+	bankHandler := handler.NewBankHandler(mux, bankService)
 
 	accountHandler.MapRoutes()
 	transactionHandler.MapRoutes()
+	bankHandler.MapRoutes()
 
 	defer sqlDB.Close()
 

@@ -19,13 +19,15 @@ type AccountHandler struct {
 	mux                *http.ServeMux
 	transactionService *service.TransactionService
 	accountService     *service.AccountService
+	bankService        *service.BankService
 }
 
-func NewAccountHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService) *AccountHandler {
+func NewAccountHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService, bankService *service.BankService) *AccountHandler {
 	return &AccountHandler{
 		mux:                mux,
 		accountService:     accountService,
 		transactionService: transactionService,
+		bankService:        bankService,
 	}
 }
 
@@ -82,7 +84,7 @@ func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 		var acc models.Account
 
 		body, err := io.ReadAll(r.Body)
-		fmt.Print(body)
+		// fmt.Print(body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -92,6 +94,23 @@ func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(dto.BaseResponse{
 				Message: "Request body is empty",
+			})
+			return
+		}
+
+		if err := json.Unmarshal(body, &acc); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(dto.BaseResponse{
+				Message: "Invalid JSON",
+			})
+			return
+		}
+
+		_, err = t.bankService.GetById(acc.BankID.String())
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(dto.BaseResponse{
+				Message: "Bank ID doesnt exists",
 			})
 			return
 		}
@@ -134,6 +153,7 @@ func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 
 func (t *AccountHandler) UpdateAcc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// r.PathValue(r)
 		var req struct {
 			AccountHolder string `json:"account_holder"`
 			Balance       int    `json:"balance"`
