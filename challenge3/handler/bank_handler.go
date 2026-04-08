@@ -54,7 +54,7 @@ func (t *BankHandler) GetBankById() http.HandlerFunc {
 		}
 		fmt.Print(id)
 		// log.Fatal(id)
-		account, err := t.bankService.GetById(id)
+		account, err := t.bankService.GetById(r.Context(), id)
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -177,7 +177,7 @@ func (t *BankHandler) UpdateBank() http.HandlerFunc {
 			return
 		}
 
-		existing, err := t.bankService.GetById(idRaw)
+		existing, err := t.bankService.GetById(r.Context(), idRaw)
 		if err != nil || existing == nil {
 			w.WriteHeader(http.StatusNotFound)
 			return

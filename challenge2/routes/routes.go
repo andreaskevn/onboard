@@ -5,9 +5,11 @@ import (
 	"net/http"
 )
 
-func RegisterItemRoutes(itemHandler *handler.ItemHandler) {
+func RegisterItemRoutes(itemHandler *handler.ItemHandler) http.Handler {
 
-	http.HandleFunc("/api/items", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/items", func(w http.ResponseWriter, r *http.Request) {
 
 		switch r.Method {
 
@@ -25,4 +27,6 @@ func RegisterItemRoutes(itemHandler *handler.ItemHandler) {
 		}
 
 	})
+
+	return mux
 }

@@ -13,6 +13,11 @@ type TransactionRepo struct {
 	db *gorm.DB
 }
 
+type ITransactionRepo interface {
+	Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error)
+	GetHistory(id uuid.UUID) ([]models.Transaction, error)
+}
+
 func NewTransactionRepo(db *gorm.DB) *TransactionRepo {
 	return &TransactionRepo{db: db}
 }

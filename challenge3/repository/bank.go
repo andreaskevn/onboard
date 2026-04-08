@@ -2,14 +2,27 @@ package repository
 
 import (
 	"challenge3/models"
+	"context"
 
 	"github.com/google/uuid"
+	// "go.opentelemetry.io/otel"
+	// "go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 	// "fmt"
 )
 
 type BankRepo struct {
 	db *gorm.DB
+}
+
+type IBankRepo interface {
+	GetAll() ([]models.Bank, error)
+	GetById(ctx context.Context, id string) (*models.Bank, error)
+	GetByCode(code string) (*models.Bank, error)
+	GetByName(name string) (*models.Bank, error)
+	CreateBank(bank *models.Bank) (*models.Bank, error)
+	UpdateBank(id uuid.UUID, bankName string, bankCode string) (*models.Bank, error)
+	DeleteBank(id string) error
 }
 
 func NewBankRepo(db *gorm.DB) *BankRepo {
@@ -27,8 +40,12 @@ func (t *BankRepo) GetAll() ([]models.Bank, error) {
 	return banks, nil
 }
 
-func (t *BankRepo) GetById(id string) (*models.Bank, error) {
+// var tracer trace.Tracer = otel.Tracer("bank-service")
+func (t *BankRepo) GetById(ctx context.Context, id string) (*models.Bank, error) {
 	var bank models.Bank
+
+	_, span := tracer.Start(ctx, "bank.repository.getbyid")
+	defer span.End()
 
 	err := t.db.First(&bank, "id = ?", id).Error
 	if err != nil {
@@ -68,7 +85,7 @@ func (t *BankRepo) CreateBank(bank *models.Bank) (*models.Bank, error) {
 		return nil, err
 	}
 
-	if err := t.db.Preload("Account").First(bank, "id = ?", bank.ID).Error; err != nil {
+	if err := t.db.Preload("Accounts").First(bank, "id = ?", bank.ID).Error; err != nil {
 		return nil, err
 	}
 

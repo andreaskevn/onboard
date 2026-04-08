@@ -1,0 +1,155 @@
+# version: '3.9'
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: End.Game2o2o
+      POSTGRES_DB: challenge3
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - bank_net
+
+  app:
+    build: .
+    container_name: bank_api_docker
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 1g
+    networks:
+      - bank_net
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: End.Game2o2o
+      DB_NAME: challenge3
+
+  redis:
+    image: redis:7.4-alpine
+    restart: always
+    mem_limit: 512m
+    ports:
+      - "6378:6379" # Maps host port 6379 to container port 6379
+    volumes:
+      - redis-data:/data # Persists data to a named volume
+    networks:
+      - bank_net
+  tempo:
+    image: grafana/tempo:2.7.0
+    container_name: bank_api_tempo
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./tempo-data:/tmp/tempo
+    ports:
+      - "4317:4317"   # gRPC
+      - "4318:4318"   # HTTP
+      - "3201:3200"
+    command: ["-config.file=/etc/tempo.yaml"]
+    networks:
+      - bank_net
+  loki:
+    image: grafana/loki:2.9.0
+    # container_name: bank_api_loki
+    ports:
+      - "3100:3100"
+    networks:
+      - bank_net
+    command: -config.file=/etc/loki/local-config.yaml
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - bank_net
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bank_api_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/config/datasources/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+    networks:
+      - bank_net
+  otel-collector:
+    image: otel/opentelemetry-collector:0.102.0
+    container_name: otel_collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4319:4317"   # OTLP gRPC
+      - "4320:4318"   # OTLP HTTP
+      - "9464:9464"   # Prometheus scrape endpoint
+    networks:
+      - bank_net
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    networks:
+      - bank_net
+  prometheus:
+      image: prom/prometheus:latest
+      container_name: prometheus
+      volumes:
+        - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      command:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+      ports:
+        - "9090:9090"
+      networks:
+        - bank_net
+      depends_on:
+        - cadvisor
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+    - 8080:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+    - redis
+volumes:
+  pgdata:
+  redis-data: 
+
+networks:
+  bank_net:
+    driver: bridge

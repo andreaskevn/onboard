@@ -14,7 +14,7 @@ type Account struct {
 	Balance       int       `gorm:"not null;default:0" json:"balance"`
 
 	BankID uuid.UUID `gorm:"not null" json:"bank_id"`
-	Bank   Bank `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Bank   Bank `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"bank"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

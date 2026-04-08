@@ -1,0 +1,1802 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>cmd: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">challenge3/cmd/main.go (0.0%)</option>
+				
+				<option value="file1">challenge3/config/db.go (0.0%)</option>
+				
+				<option value="file2">challenge3/handler/account_handler.go (0.0%)</option>
+				
+				<option value="file3">challenge3/handler/account_routes.go (0.0%)</option>
+				
+				<option value="file4">challenge3/handler/bank_handler.go (0.0%)</option>
+				
+				<option value="file5">challenge3/handler/bank_routes.go (0.0%)</option>
+				
+				<option value="file6">challenge3/handler/transaction_handler.go (0.0%)</option>
+				
+				<option value="file7">challenge3/handler/transaction_routes.go (0.0%)</option>
+				
+				<option value="file8">challenge3/repository/account.go (0.0%)</option>
+				
+				<option value="file9">challenge3/repository/bank.go (0.0%)</option>
+				
+				<option value="file10">challenge3/repository/mocks/IAccountRepo.go (0.0%)</option>
+				
+				<option value="file11">challenge3/repository/mocks/ITransactionRepo.go (0.0%)</option>
+				
+				<option value="file12">challenge3/repository/transaction.go (0.0%)</option>
+				
+				<option value="file13">challenge3/server/helper.go (0.0%)</option>
+				
+				<option value="file14">challenge3/server/http.go (0.0%)</option>
+				
+				<option value="file15">challenge3/service/account.go (100.0%)</option>
+				
+				<option value="file16">challenge3/service/bank.go (0.0%)</option>
+				
+				<option value="file17">challenge3/service/transaction.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "log"
+        "net/http"
+
+        "challenge3/config"
+        "challenge3/handler"
+        "challenge3/models"
+        "challenge3/repository"
+        "challenge3/server"
+        "challenge3/service"
+)
+
+func main() <span class="cov0" title="0">{
+        db, err := config.InitDb()
+        db.AutoMigrate(&amp;models.Account{}, &amp;models.Transaction{}, &amp;models.Bank{})
+        db.AutoMigrate(&amp;models.Bank{})
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatal(err)
+        }</span>
+
+        <span class="cov0" title="0">sqlDB, err := db.DB()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatal(err)
+        }</span>
+
+        <span class="cov0" title="0">log.Println("Database successfully running")
+        addr := ":8000"
+        mux := http.NewServeMux()
+
+        accountRepo := repository.NewAccountRepo(db)
+        accountService := service.NewAccountService(accountRepo)
+
+        bankRepo := repository.NewBankRepo(db)
+        bankService := service.NewBankService(bankRepo)
+
+        transactionRepo := repository.NewTransactionRepo(db)
+        transactionService := service.NewTransactionService(transactionRepo)
+
+        accountHandler := handler.NewAccountHandler(mux, transactionService, accountService, bankService)
+        transactionHandler := handler.NewTransctionHandler(mux, transactionService, accountService)
+        bankHandler := handler.NewBankHandler(mux, bankService)
+
+        accountHandler.MapRoutes()
+        transactionHandler.MapRoutes()
+        bankHandler.MapRoutes()
+
+        defer sqlDB.Close()
+
+        log.Println("Server running on", addr)
+        http.ListenAndServe(addr,
+                server.ApplicationMiddlewareResponse(
+                        server.HandleRouteNotFound(mux),
+                ),
+        )</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package config
+
+import (
+        "fmt"
+        "github.com/joho/godotenv"
+        "gorm.io/driver/postgres"
+        "gorm.io/gorm"
+        // "challenge3/models"
+        "os"
+)
+
+func InitDb() (*gorm.DB, error) <span class="cov0" title="0">{
+        err := godotenv.Load("../.env")
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error loading .env file: %w", err)
+        }</span>
+        <span class="cov0" title="0">dsn := os.Getenv("DB_URL")
+        db, err := gorm.Open(postgres.Open(dsn), &amp;gorm.Config{})
+
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("Gagal connect DB: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return db, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package handler
+
+import (
+        "challenge3/dto"
+        "challenge3/models"
+        "challenge3/service"
+        "context"
+        "encoding/json"
+        "net/http"
+        "strings"
+
+        // "github.com/go-chi/chi/v5"
+        "fmt"
+        "github.com/google/uuid"
+        "io"
+)
+
+type AccountHandler struct {
+        mux                *http.ServeMux
+        transactionService *service.TransactionService
+        accountService     *service.AccountService
+        bankService        *service.BankService
+}
+
+func NewAccountHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService, bankService *service.BankService) *AccountHandler <span class="cov0" title="0">{
+        return &amp;AccountHandler{
+                mux:                mux,
+                accountService:     accountService,
+                transactionService: transactionService,
+                bankService:        bankService,
+        }
+}</span>
+
+func (t *AccountHandler) Get() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                account, err := t.accountService.GetAllAccount()
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "succes",
+                        Data:    account,
+                })</span>
+        }
+}
+
+func (t *AccountHandler) GetById() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                id := getIDFromContext(r)
+                if id == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+                <span class="cov0" title="0">fmt.Print(id)
+                // log.Fatal(id)
+                account, err := t.accountService.GetAccountById(id)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "succes",
+                        Data:    account,
+                })</span>
+        }
+}
+
+func (t *AccountHandler) CreateAcc() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                var acc models.Account
+
+                body, err := io.ReadAll(r.Body)
+                // fmt.Print(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(body) == 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Request body is empty",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if err := json.Unmarshal(body, &amp;acc); err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Invalid JSON",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">_, err = t.bankService.GetById(acc.BankID.String())
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank ID doesnt exists",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">existing, err := t.accountService.GetAccountByAccNumber(acc.AccountNumber)
+                if err == nil &amp;&amp; existing != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusConflict)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account with this number already exists",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if acc.Balance &lt;= 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Balance cant be lower than 0",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">result, err := t.accountService.CreateAcc(&amp;acc)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Account Created Successfully",
+                        Data:    result,
+                })</span>
+        }
+}
+
+func (t *AccountHandler) UpdateAcc() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                // r.PathValue(r)
+                var req struct {
+                        AccountHolder string `json:"account_holder"`
+                        Balance       int    `json:"balance"`
+                }
+
+                idRaw := r.URL.Path[len("/accounts/"):]
+                if idRaw == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">id, err := uuid.Parse(idRaw)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">body, err := io.ReadAll(r.Body)
+                fmt.Print(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(body) == 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Request body is empty",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">existing, err := t.accountService.GetAccountById(idRaw)
+                if err != nil || existing == nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if existing.AccountHolder != req.AccountHolder </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account Holder not Match with the Data",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if req.Balance &lt;= 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Balance cant be lower than 0",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">result, err := t.accountService.UpdateAcc(id, req.AccountHolder, req.Balance)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Account updated successfully",
+                        Data:    result,
+                })</span>
+        }
+}
+
+func (t *AccountHandler) DeleteAcc() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                id := r.URL.Path[len("/accounts/"):]
+                if id == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">err := t.accountService.DeleteAcc(id)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account with this id doesnt exists",
+                        })
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Account Deleted Successfully",
+                        // Data:    result,
+                })</span>
+        }
+}
+
+func (t *AccountHandler) GetHistory() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                idRaw := getIDFromContext(r)
+                if idRaw == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+                <span class="cov0" title="0">if idx := strings.Index(idRaw, "/"); idx != -1 </span><span class="cov0" title="0">{
+                        idRaw = idRaw[:idx]
+                }</span>
+
+                <span class="cov0" title="0">fmt.Print(idRaw)
+                // log.Fatal(idRaw)
+
+                id, err := uuid.Parse(idRaw)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">_, err = t.accountService.GetAccountById(idRaw)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account doesnt exist",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">histories, err := t.transactionService.GetHistory(id)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Transaction History Successfully Fetched",
+                        Data:    histories,
+                })</span>
+        }
+}
+
+type contextKey string
+
+const idKey contextKey = "id"
+
+func setIDToContext(r *http.Request, id string) *http.Request <span class="cov0" title="0">{
+        ctx := context.WithValue(r.Context(), idKey, id)
+        return r.WithContext(ctx)
+}</span>
+
+func getIDFromContext(r *http.Request) string <span class="cov0" title="0">{
+        id, _ := r.Context().Value(idKey).(string)
+        return id
+}</span>
+
+func (t *AccountHandler) AccountRouter() http.HandlerFunc <span class="cov0" title="0">{
+
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+
+                path := strings.TrimPrefix(r.URL.Path, "/accounts/")
+                parts := strings.Split(path, "/")
+
+                // contoh:
+                // /accounts/123 -&gt; ["123"]
+                // /accounts/123/transfer -&gt; ["123", "transfer"]
+
+                if len(parts) == 1 </span><span class="cov0" title="0">{
+                        // GET /accounts/{id}
+                        r = setIDToContext(r, parts[0]) // optional helper
+                        t.GetById()(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(parts) == 2 &amp;&amp; parts[1] == "transfer" </span><span class="cov0" title="0">{
+                        // GET /accounts/{id}/transfer
+                        r = setIDToContext(r, parts[0])
+                        t.GetHistory()(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">http.NotFound(w, r)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package handler
+
+import (
+        "challenge3/server"
+        "net/http"
+        // "github.com/go-chi/chi/v5"
+)
+
+func (t *AccountHandler) MapRoutes() <span class="cov0" title="0">{
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodGet, "/accounts"),
+                t.Get(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodGet, "/accounts/"),
+                t.AccountRouter(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodPost, "/accounts"),
+                t.CreateAcc(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodPut, "/accounts/"),
+                t.UpdateAcc(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodDelete, "/accounts/"),
+                t.DeleteAcc(),
+        )
+
+        // t.mux.HandleFunc(
+        //         server.NewAPIPath(http.MethodGet, "/accounts/:id/transfer/"),
+        //         t.GetHistory(),
+        // )
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package handler
+
+import (
+        "challenge3/dto"
+        "challenge3/models"
+        "challenge3/service"
+        "encoding/json"
+        "net/http"
+
+        // "github.com/go-chi/chi/v5"
+        "fmt"
+        "github.com/google/uuid"
+        "io"
+)
+
+type BankHandler struct {
+        mux         *http.ServeMux
+        bankService *service.BankService
+}
+
+func NewBankHandler(mux *http.ServeMux, bankService *service.BankService) *BankHandler <span class="cov0" title="0">{
+        return &amp;BankHandler{
+                mux:         mux,
+                bankService: bankService,
+        }
+}</span>
+
+func (t *BankHandler) GetBank() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                account, err := t.bankService.GetAllBank()
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "succes",
+                        Data:    account,
+                })</span>
+        }
+}
+
+func (t *BankHandler) GetBankById() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                id := getIDFromContext(r)
+                if id == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+                <span class="cov0" title="0">fmt.Print(id)
+                // log.Fatal(id)
+                account, err := t.bankService.GetById(id)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "succes",
+                        Data:    account,
+                })</span>
+        }
+}
+
+func (t *BankHandler) CreateAcc() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                var bank models.Bank
+
+                body, err := io.ReadAll(r.Body)
+                // fmt.Print(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(body) == 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Request body is empty",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if err := json.Unmarshal(body, &amp;bank); err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Invalid JSON",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">bankCodeExist, err := t.bankService.GetByCode(bank.Code)
+                fmt.Print(bank.Code)
+                fmt.Print(bank.Name)
+                if err == nil &amp;&amp; bankCodeExist != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusConflict)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank with this Code already exists",
+                        })
+                        fmt.Println("bankCodeExist: %w", bankCodeExist)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">bankNameExist, err := t.bankService.GetByName(bank.Name)
+                if err == nil &amp;&amp; bankNameExist != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusConflict)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank with this Name already exists",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">result, err := t.bankService.CreateBank(&amp;bank)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Account Created Successfully",
+                        Data:    result,
+                })</span>
+        }
+}
+
+func (t *BankHandler) UpdateBank() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                var req struct {
+                        BankName string `json:"bank_name"`
+                        BankCode string `json:"bank_code"`
+                }
+
+                idRaw := r.URL.Path[len("/banks/"):]
+                if idRaw == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">id, err := uuid.Parse(idRaw)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">body, err := io.ReadAll(r.Body)
+                fmt.Print(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(body) == 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Request body is empty",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">existing, err := t.bankService.GetById(idRaw)
+                if err != nil || existing == nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">bankCodeExist, err := t.bankService.GetByCode(req.BankCode)
+                if err == nil &amp;&amp; bankCodeExist != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusConflict)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank with this Code already exists",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">bankNameExist, err := t.bankService.GetByCode(req.BankName)
+                if err == nil &amp;&amp; bankNameExist != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusConflict)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank with this Name already exists",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">result, err := t.bankService.UpdateBank(id, req.BankName, req.BankCode)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Account updated successfully",
+                        Data:    result,
+                })</span>
+        }
+}
+
+func (t *BankHandler) DeleteBank() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                id := r.URL.Path[len("/banks/"):]
+                if id == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">err := t.bankService.DeleteBank(id)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Bank with this id doesnt exists",
+                        })
+                }</span>
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Bank Deleted Successfully",
+                        // Data:    result,
+                })</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package handler
+
+import (
+        "challenge3/server"
+        "net/http"
+        // "github.com/go-chi/chi/v5"
+)
+
+func (t *BankHandler) MapRoutes() <span class="cov0" title="0">{
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodGet, "/banks"),
+                t.GetBank(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodGet, "/banks/"),
+                t.GetBankById(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodPost, "/banks"),
+                t.CreateAcc(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodPut, "/banks/"),
+                t.UpdateBank(),
+        )
+
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodDelete, "/banks/"),
+                t.DeleteBank(),
+        )
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package handler
+
+import (
+        "challenge3/dto"
+        // "challenge3/models"
+        "challenge3/service"
+        "encoding/json"
+        "fmt"
+        "github.com/google/uuid"
+        "io"
+        "net/http"
+)
+
+type TransactionHandler struct {
+        mux                *http.ServeMux
+        transactionService *service.TransactionService
+        accountService     *service.AccountService
+}
+
+func NewTransctionHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService) *TransactionHandler <span class="cov0" title="0">{
+        return &amp;TransactionHandler{
+                mux:                mux,
+                transactionService: transactionService,
+                accountService:     accountService,
+        }
+}</span>
+
+func (t *TransactionHandler) Transfer() http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                var req struct {
+                        AccountFrom uuid.UUID `json:"from_account_id"`
+                        AccountTo   uuid.UUID `json:"to_account_id"`
+                        Amount      int       `json:"amount"`
+                        AdminFee    int       `json:"admin_fee"`
+                }
+
+                body, err := io.ReadAll(r.Body)
+                // fmt.Print(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if len(body) == 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Request body is empty",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if err := json.Unmarshal(body, &amp;req); err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Invalid JSON",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if req.AccountFrom == req.AccountTo </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account From and Destination cant be same",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">accountFromExist, err := t.accountService.GetAccountById(req.AccountFrom.String())
+                if err != nil || accountFromExist == nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account From doesnt exist",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">accountToExist, err := t.accountService.GetAccountById(req.AccountTo.String())
+                if err != nil || accountToExist == nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Account Destination doesnt exist",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if req.Amount &lt;= 0 </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Amount cant be lower than 0",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if accountFromExist.Balance &lt; (req.Amount + req.AdminFee) </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Your balance is insufficient",
+                                // Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if accountFromExist.BankID != accountToExist.BankID </span><span class="cov0" title="0">{
+                        if req.AdminFee &lt;= 0 </span><span class="cov0" title="0">{
+                                w.WriteHeader(http.StatusBadRequest)
+                                json.NewEncoder(w).Encode(dto.BaseResponse{
+                                        Message: "Admin Fee must included",
+                                        // Data:    accountToExist,
+                                })
+                                return
+                        }</span>
+                }
+                <span class="cov0" title="0">fmt.Print(&amp;accountFromExist)
+                fmt.Print(&amp;accountToExist)
+
+                result, err := t.transactionService.Transfer(req.AccountFrom, req.AccountTo, req.Amount, req.AdminFee)
+                result.AdminFee = req.AdminFee - (req.AdminFee * 2)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">reduceBalance := accountFromExist.Balance - (req.Amount + req.AdminFee)
+                _, err = t.accountService.UpdateAcc(accountFromExist.ID, accountFromExist.AccountHolder, reduceBalance)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusInternalServerError)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "error",
+                                Data:    err.Error(),
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">json.NewEncoder(w).Encode(dto.BaseResponse{
+                        Message: "Transfer successfully sent",
+                        Data:    result,
+                })</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package handler
+
+import (
+        "challenge3/server"
+        "net/http"
+)
+
+func (t *TransactionHandler) MapRoutes() <span class="cov0" title="0">{
+        t.mux.HandleFunc(
+                server.NewAPIPath(http.MethodPost, "/transfer"),
+                t.Transfer(),
+        )
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package repository
+
+import (
+        "challenge3/models"
+
+        "github.com/google/uuid"
+        "gorm.io/gorm"
+        // "fmt"
+)
+
+type AccountRepo struct {
+        db *gorm.DB
+}
+
+type IAccountRepo interface {
+        GetAll() ([]models.Account, error)
+        GetById(id string) (*models.Account, error)
+        GetByAccountNumber(accNumber string) (*models.Account, error)
+        CreateAcc(acc *models.Account) (*models.Account, error)
+        UpdateAcc(id uuid.UUID, accountHolder string, balance int) (*models.Account, error)
+        DeleteAcc(id string) error
+}
+
+func NewAccountRepo(db *gorm.DB) *AccountRepo <span class="cov0" title="0">{
+        return &amp;AccountRepo{db: db}
+}</span>
+
+func (t *AccountRepo) GetAll() ([]models.Account, error) <span class="cov0" title="0">{
+        var accounts []models.Account
+
+        err := t.db.Find(&amp;accounts).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return accounts, nil</span>
+}
+
+func (t *AccountRepo) GetById(id string) (*models.Account, error) <span class="cov0" title="0">{
+        var account models.Account
+
+        err := t.db.First(&amp;account, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if err := t.db.Preload("Bank").First(&amp;account, "id = ?", account.ID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;account, nil</span>
+}
+
+func (t *AccountRepo) GetByAccountNumber(accNumber string) (*models.Account, error) <span class="cov0" title="0">{
+        var account models.Account
+
+        err := t.db.First(&amp;account, "account_number = ?", accNumber).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;account, nil</span>
+}
+
+func (t *AccountRepo) CreateAcc(acc *models.Account) (*models.Account, error) <span class="cov0" title="0">{
+        acc.ID = uuid.New()
+        err := t.db.Create(acc).Error
+
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if err := t.db.Preload("Bank").First(acc, "id = ?", acc.ID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return acc, nil</span>
+}
+
+func (t *AccountRepo) UpdateAcc(id uuid.UUID, accountHolder string, balance int) (*models.Account, error) <span class="cov0" title="0">{
+        var acc models.Account
+
+        err := t.db.First(&amp;acc, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // if acc.
+
+        <span class="cov0" title="0">acc.AccountHolder = accountHolder
+        acc.Balance = balance
+
+        err = t.db.Save(&amp;acc).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;acc, nil</span>
+}
+
+func (t *AccountRepo) DeleteAcc(id string) error <span class="cov0" title="0">{
+        var acc models.Account
+
+        err := t.db.Delete(&amp;acc, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package repository
+
+import (
+        "challenge3/models"
+
+        "github.com/google/uuid"
+        "gorm.io/gorm"
+        // "fmt"
+)
+
+type BankRepo struct {
+        db *gorm.DB
+}
+
+func NewBankRepo(db *gorm.DB) *BankRepo <span class="cov0" title="0">{
+        return &amp;BankRepo{db: db}
+}</span>
+
+func (t *BankRepo) GetAll() ([]models.Bank, error) <span class="cov0" title="0">{
+        var banks []models.Bank
+
+        err := t.db.Find(&amp;banks).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return banks, nil</span>
+}
+
+func (t *BankRepo) GetById(id string) (*models.Bank, error) <span class="cov0" title="0">{
+        var bank models.Bank
+
+        err := t.db.First(&amp;bank, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;bank, nil</span>
+}
+
+func (t *BankRepo) GetByCode(code string) (*models.Bank, error) <span class="cov0" title="0">{
+        var bank models.Bank
+
+        err := t.db.First(&amp;bank, "code = ?", code).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;bank, nil</span>
+}
+
+func (t *BankRepo) GetByName(name string) (*models.Bank, error) <span class="cov0" title="0">{
+        var bank models.Bank
+
+        err := t.db.First(&amp;bank, "name = ?", name).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;bank, nil</span>
+}
+
+func (t *BankRepo) CreateBank(bank *models.Bank) (*models.Bank, error) <span class="cov0" title="0">{
+        bank.ID = uuid.New()
+        err := t.db.Create(bank).Error
+
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if err := t.db.Preload("Account").First(bank, "id = ?", bank.ID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return bank, nil</span>
+}
+
+func (t *BankRepo) UpdateBank(id uuid.UUID, bankName string, bankCode string) (*models.Bank, error) <span class="cov0" title="0">{
+        var bank models.Bank
+
+        err := t.db.First(&amp;bank, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // if acc.
+
+        <span class="cov0" title="0">bank.Code = bankCode
+        bank.Name = bankName
+
+        err = t.db.Save(&amp;bank).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;bank, nil</span>
+}
+
+func (t *BankRepo) DeleteBank(id string) error <span class="cov0" title="0">{
+        var bank models.Bank
+
+        err := t.db.Delete(&amp;bank, "id = ?", id).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">// Code generated by mockery v2.53.6. DO NOT EDIT.
+
+package mocks
+
+import (
+        models "challenge3/models"
+
+        mock "github.com/stretchr/testify/mock"
+
+        uuid "github.com/google/uuid"
+)
+
+// IAccountRepo is an autogenerated mock type for the IAccountRepo type
+type IAccountRepo struct {
+        mock.Mock
+}
+
+// CreateAcc provides a mock function with given fields: acc
+func (_m *IAccountRepo) CreateAcc(acc *models.Account) (*models.Account, error) <span class="cov0" title="0">{
+        ret := _m.Called(acc)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for CreateAcc")</span>
+        }
+
+        <span class="cov0" title="0">var r0 *models.Account
+        var r1 error
+        if rf, ok := ret.Get(0).(func(*models.Account) (*models.Account, error)); ok </span><span class="cov0" title="0">{
+                return rf(acc)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(*models.Account) *models.Account); ok </span><span class="cov0" title="0">{
+                r0 = rf(acc)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).(*models.Account)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(*models.Account) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(acc)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// DeleteAcc provides a mock function with given fields: id
+func (_m *IAccountRepo) DeleteAcc(id string) error <span class="cov0" title="0">{
+        ret := _m.Called(id)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for DeleteAcc")</span>
+        }
+
+        <span class="cov0" title="0">var r0 error
+        if rf, ok := ret.Get(0).(func(string) error); ok </span><span class="cov0" title="0">{
+                r0 = rf(id)
+        }</span> else<span class="cov0" title="0"> {
+                r0 = ret.Error(0)
+        }</span>
+
+        <span class="cov0" title="0">return r0</span>
+}
+
+// GetAll provides a mock function with no fields
+func (_m *IAccountRepo) GetAll() ([]models.Account, error) <span class="cov0" title="0">{
+        ret := _m.Called()
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for GetAll")</span>
+        }
+
+        <span class="cov0" title="0">var r0 []models.Account
+        var r1 error
+        if rf, ok := ret.Get(0).(func() ([]models.Account, error)); ok </span><span class="cov0" title="0">{
+                return rf()
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func() []models.Account); ok </span><span class="cov0" title="0">{
+                r0 = rf()
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).([]models.Account)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func() error); ok </span><span class="cov0" title="0">{
+                r1 = rf()
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// GetByAccountNumber provides a mock function with given fields: accNumber
+func (_m *IAccountRepo) GetByAccountNumber(accNumber string) (*models.Account, error) <span class="cov0" title="0">{
+        ret := _m.Called(accNumber)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for GetByAccountNumber")</span>
+        }
+
+        <span class="cov0" title="0">var r0 *models.Account
+        var r1 error
+        if rf, ok := ret.Get(0).(func(string) (*models.Account, error)); ok </span><span class="cov0" title="0">{
+                return rf(accNumber)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(string) *models.Account); ok </span><span class="cov0" title="0">{
+                r0 = rf(accNumber)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).(*models.Account)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(string) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(accNumber)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// GetById provides a mock function with given fields: id
+func (_m *IAccountRepo) GetById(id string) (*models.Account, error) <span class="cov0" title="0">{
+        ret := _m.Called(id)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for GetById")</span>
+        }
+
+        <span class="cov0" title="0">var r0 *models.Account
+        var r1 error
+        if rf, ok := ret.Get(0).(func(string) (*models.Account, error)); ok </span><span class="cov0" title="0">{
+                return rf(id)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(string) *models.Account); ok </span><span class="cov0" title="0">{
+                r0 = rf(id)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).(*models.Account)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(string) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(id)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// UpdateAcc provides a mock function with given fields: id, accountHolder, balance
+func (_m *IAccountRepo) UpdateAcc(id uuid.UUID, accountHolder string, balance int) (*models.Account, error) <span class="cov0" title="0">{
+        ret := _m.Called(id, accountHolder, balance)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for UpdateAcc")</span>
+        }
+
+        <span class="cov0" title="0">var r0 *models.Account
+        var r1 error
+        if rf, ok := ret.Get(0).(func(uuid.UUID, string, int) (*models.Account, error)); ok </span><span class="cov0" title="0">{
+                return rf(id, accountHolder, balance)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(uuid.UUID, string, int) *models.Account); ok </span><span class="cov0" title="0">{
+                r0 = rf(id, accountHolder, balance)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).(*models.Account)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(uuid.UUID, string, int) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(id, accountHolder, balance)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// NewIAccountRepo creates a new instance of IAccountRepo. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewIAccountRepo(t interface {
+        mock.TestingT
+        Cleanup(func())
+}) *IAccountRepo <span class="cov0" title="0">{
+        mock := &amp;IAccountRepo{}
+        mock.Mock.Test(t)
+
+        t.Cleanup(func() </span><span class="cov0" title="0">{ mock.AssertExpectations(t) }</span>)
+
+        <span class="cov0" title="0">return mock</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">// Code generated by mockery v2.53.6. DO NOT EDIT.
+
+package mocks
+
+import (
+        models "challenge3/models"
+
+        mock "github.com/stretchr/testify/mock"
+
+        uuid "github.com/google/uuid"
+)
+
+// ITransactionRepo is an autogenerated mock type for the ITransactionRepo type
+type ITransactionRepo struct {
+        mock.Mock
+}
+
+// GetHistory provides a mock function with given fields: id
+func (_m *ITransactionRepo) GetHistory(id uuid.UUID) ([]models.Transaction, error) <span class="cov0" title="0">{
+        ret := _m.Called(id)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for GetHistory")</span>
+        }
+
+        <span class="cov0" title="0">var r0 []models.Transaction
+        var r1 error
+        if rf, ok := ret.Get(0).(func(uuid.UUID) ([]models.Transaction, error)); ok </span><span class="cov0" title="0">{
+                return rf(id)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(uuid.UUID) []models.Transaction); ok </span><span class="cov0" title="0">{
+                r0 = rf(id)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).([]models.Transaction)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(uuid.UUID) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(id)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// Transfer provides a mock function with given fields: accFrom, accTo, amount, adminFee
+func (_m *ITransactionRepo) Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error) <span class="cov0" title="0">{
+        ret := _m.Called(accFrom, accTo, amount, adminFee)
+
+        if len(ret) == 0 </span><span class="cov0" title="0">{
+                panic("no return value specified for Transfer")</span>
+        }
+
+        <span class="cov0" title="0">var r0 *models.Transaction
+        var r1 error
+        if rf, ok := ret.Get(0).(func(uuid.UUID, uuid.UUID, int, int) (*models.Transaction, error)); ok </span><span class="cov0" title="0">{
+                return rf(accFrom, accTo, amount, adminFee)
+        }</span>
+        <span class="cov0" title="0">if rf, ok := ret.Get(0).(func(uuid.UUID, uuid.UUID, int, int) *models.Transaction); ok </span><span class="cov0" title="0">{
+                r0 = rf(accFrom, accTo, amount, adminFee)
+        }</span> else<span class="cov0" title="0"> {
+                if ret.Get(0) != nil </span><span class="cov0" title="0">{
+                        r0 = ret.Get(0).(*models.Transaction)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if rf, ok := ret.Get(1).(func(uuid.UUID, uuid.UUID, int, int) error); ok </span><span class="cov0" title="0">{
+                r1 = rf(accFrom, accTo, amount, adminFee)
+        }</span> else<span class="cov0" title="0"> {
+                r1 = ret.Error(1)
+        }</span>
+
+        <span class="cov0" title="0">return r0, r1</span>
+}
+
+// NewITransactionRepo creates a new instance of ITransactionRepo. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewITransactionRepo(t interface {
+        mock.TestingT
+        Cleanup(func())
+}) *ITransactionRepo <span class="cov0" title="0">{
+        mock := &amp;ITransactionRepo{}
+        mock.Mock.Test(t)
+
+        t.Cleanup(func() </span><span class="cov0" title="0">{ mock.AssertExpectations(t) }</span>)
+
+        <span class="cov0" title="0">return mock</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package repository
+
+import (
+        "challenge3/models"
+        // "challenge3/repository"
+
+        "github.com/google/uuid"
+        "gorm.io/gorm"
+        // "fmt"
+)
+
+type TransactionRepo struct {
+        db *gorm.DB
+}
+
+type ITransactionRepo interface {
+        Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error)
+        GetHistory(id uuid.UUID) ([]models.Transaction, error)
+}
+
+func NewTransactionRepo(db *gorm.DB) *TransactionRepo <span class="cov0" title="0">{
+        return &amp;TransactionRepo{db: db}
+}</span>
+
+func (t *TransactionRepo) Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error) <span class="cov0" title="0">{
+        var tf models.Transaction
+
+        tf.ID = uuid.New()
+        tf.AccountFrom = accFrom
+        tf.AccountTo = accTo
+        tf.Amount = amount
+        tf.AdminFee = adminFee
+
+        err := t.db.Create(&amp;tf).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;tf, nil</span>
+}
+
+func (t *TransactionRepo) GetHistory(id uuid.UUID) ([]models.Transaction, error) <span class="cov0" title="0">{
+        var histories []models.Transaction
+
+        err := t.db.
+                Where("account_from = ? OR account_to = ?", id, id).
+                Find(&amp;histories).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return histories, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package server
+
+import "fmt"
+
+func NewAPIPath(method string, path string) string <span class="cov0" title="0">{
+        return fmt.Sprintf("%s %s", method, path)
+}</span>
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package server
+
+import (
+        "encoding/json"
+        "net/http"
+        "challenge3/dto"
+)
+
+func ApplicationMiddlewareResponse(h http.Handler) http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                w.Header().Set("Content-Type", "application/json")
+                h.ServeHTTP(w, r)
+        }</span>
+}
+
+func HandleRouteNotFound(mux *http.ServeMux) http.HandlerFunc <span class="cov0" title="0">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                h, pattern := mux.Handler(r)
+                if pattern == "" </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusNotFound)
+                        json.NewEncoder(w).Encode(dto.BaseResponse{
+                                Message: "Not Found",
+                                Data: "Not found",
+                        })
+                        return
+                }</span>
+
+                <span class="cov0" title="0">h.ServeHTTP(w, r)</span>
+        }
+}</pre>
+		
+		<pre class="file" id="file15" style="display: none">package service
+
+import (
+        "challenge3/models"
+        "challenge3/repository"
+
+        "github.com/google/uuid"
+        // "gorm.io/gorm"
+)
+
+// type AccountService struct {
+//         repo *repository.AccountRepo
+// }
+
+//        func NewAccountService(repo *repository.AccountRepo) *AccountService {
+//                return &amp;AccountService{repo: repo}
+//        }
+type AccountService struct {
+        repo repository.IAccountRepo
+}
+
+func NewAccountService(repo repository.IAccountRepo) *AccountService <span class="cov8" title="1">{
+        return &amp;AccountService{repo: repo}
+}</span>
+
+func (t *AccountService) GetAllAccount() ([]models.Account, error) <span class="cov8" title="1">{
+        return t.repo.GetAll()
+}</span>
+
+func (t *AccountService) GetAccountById(id string) (*models.Account, error) <span class="cov8" title="1">{
+        return t.repo.GetById(id)
+}</span>
+
+func (t *AccountService) GetAccountByAccNumber(accNumber string) (*models.Account, error) <span class="cov8" title="1">{
+        return t.repo.GetByAccountNumber(accNumber)
+}</span>
+
+func (t *AccountService) CreateAcc(acc *models.Account) (*models.Account, error) <span class="cov8" title="1">{
+        return t.repo.CreateAcc(acc)
+}</span>
+
+func (t *AccountService) UpdateAcc(id uuid.UUID, accountHolder string, balance int) (*models.Account, error) <span class="cov8" title="1">{
+        return t.repo.UpdateAcc(id, accountHolder, balance)
+}</span>
+
+func (t *AccountService) DeleteAcc(id string) error <span class="cov8" title="1">{
+        return t.repo.DeleteAcc(id)
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package service
+
+import (
+        "challenge3/models"
+        "challenge3/repository"
+
+        "github.com/google/uuid"
+        // "github.com/google/uuid"
+        // "gorm.io/gorm"
+)
+
+type BankService struct {
+        repo *repository.BankRepo
+}
+
+func NewBankService(repo *repository.BankRepo) *BankService <span class="cov0" title="0">{
+        return &amp;BankService{repo: repo}
+}</span>
+
+func (t *BankService) GetAllBank() ([]models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.GetAll()
+}</span>
+
+func (t *BankService) GetById(id string) (*models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.GetById(id)
+}</span>
+
+func (t *BankService) GetByCode(code string) (*models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.GetByCode(code)
+}</span>
+
+func (t *BankService) GetByName(name string) (*models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.GetByName(name)
+}</span>
+
+func (t *BankService) CreateBank(bank *models.Bank) (*models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.CreateBank(bank)
+}</span>
+
+func (t *BankService) UpdateBank(id uuid.UUID, bankName string, bankCode string) (*models.Bank, error) <span class="cov0" title="0">{
+        return t.repo.UpdateBank(id, bankName, bankCode)
+}</span>
+
+func (t *BankService) DeleteBank(id string) (error) <span class="cov0" title="0">{
+        return t.repo.DeleteBank(id)
+}</span>
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package service
+
+import (
+        "challenge3/models"
+        "challenge3/repository"
+
+        "github.com/google/uuid"
+        // "gorm.io/gorm"
+)
+
+// type TransactionService struct {
+//         repo *repository.TransactionRepo
+// }
+
+// func NewTransactionService(repo *repository.TransactionRepo) *TransactionService {
+//         return &amp;TransactionService{repo: repo}
+// }
+
+type TransactionService struct {
+        repo repository.ITransactionRepo
+}
+
+func NewTransactionService(repo repository.ITransactionRepo) *TransactionService <span class="cov8" title="1">{
+        return &amp;TransactionService{repo: repo}
+}</span>
+
+func (t *TransactionService) Transfer(accFrom uuid.UUID, accTo uuid.UUID, amount int, adminFee int) (*models.Transaction, error) <span class="cov8" title="1">{
+        return t.repo.Transfer(accFrom, accTo, amount, adminFee)
+}</span>
+
+func (t *TransactionService) GetHistory(id uuid.UUID) ([]models.Transaction, error) <span class="cov8" title="1">{
+        return t.repo.GetHistory(id)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

@@ -10,36 +10,59 @@ import (
 	"challenge3/repository"
 	"challenge3/server"
 	"challenge3/service"
+	// "go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 func main() {
+	err := config.InitLog()
+	if err != nil {
+		panic(err)
+	}
+
+	defer config.Log.Sync()
+	config.Log.Info("Logger initialized")
+
 	db, err := config.InitDb()
 	db.AutoMigrate(&models.Account{}, &models.Transaction{}, &models.Bank{})
 	db.AutoMigrate(&models.Bank{})
+	db.AutoMigrate(&models.IdempotencyKey{})
 	if err != nil {
-		log.Fatal(err)
+		config.Log.Fatal("Failed to connect database", zap.Error(err))
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal(err)
+		config.Log.Fatal("Failed to get SQL DB", zap.Error(err))
 	}
 
-	log.Println("Database successfully running")
+	config.Log.Info("Database Initialized")
+
+	redis, err := config.InitRedis()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Redis Initialized")
+	defer redis.Close()
+
+	cleanup := config.InitOpenTelemetry("bank-service")
+	defer cleanup()
+	
+	server.InitMetrics()
+
 	addr := ":8000"
 	mux := http.NewServeMux()
 
 	accountRepo := repository.NewAccountRepo(db)
-	accountService := service.NewAccountService(accountRepo)
-
 	bankRepo := repository.NewBankRepo(db)
-	bankService := service.NewBankService(bankRepo)
-
 	transactionRepo := repository.NewTransactionRepo(db)
-	transactionService := service.NewTransactionService(transactionRepo)
 
-	accountHandler := handler.NewAccountHandler(mux, transactionService, accountService, bankService)
-	transactionHandler := handler.NewTransctionHandler(mux, transactionService, accountService)
+	bankService := service.NewBankService(bankRepo)
+	accountService := service.NewAccountService(accountRepo, bankRepo)
+	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
+
+	accountHandler := handler.NewAccountHandler(mux, transactionService, accountService, bankService, redis)
+	transactionHandler := handler.NewTransctionHandler(mux, transactionService, accountService, redis)
 	bankHandler := handler.NewBankHandler(mux, bankService)
 
 	accountHandler.MapRoutes()
@@ -48,10 +71,12 @@ func main() {
 
 	defer sqlDB.Close()
 
-	log.Println("Server running on", addr)
-	http.ListenAndServe(addr,
-		server.ApplicationMiddlewareResponse(
-			server.HandleRouteNotFound(mux),
-		),
+	handlerChain := server.ApplicationMiddlewareResponse(
+		server.HandleRouteNotFound(mux),
 	)
+	handlerChain = server.IdempotencyMiddlewareRedis(redis, handlerChain)
+	handlerChain = server.MetricsMiddleware(handlerChain)
+	config.Log.Info("Server starting", zap.String("address", addr))
+
+	err = http.ListenAndServe(addr, handlerChain)
 }

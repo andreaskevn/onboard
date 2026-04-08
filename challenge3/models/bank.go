@@ -7,10 +7,10 @@ import (
 )
 
 type Bank struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Name      string    `gorm:"not null"`
-	Code      string    `gorm:"unique;not null"`
-	Accounts  []Account `gorm:"foreignKey:BankID"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	Name      string    `gorm:"not null" json:"name"`
+	Code      string    `gorm:"unique;not null" json:"code"`
+	Accounts  []Account `gorm:"foreignKey:BankID" json:"accounts"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

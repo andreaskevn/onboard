@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"challenge3/config"
 	"challenge3/dto"
 	"challenge3/models"
 	"challenge3/service"
@@ -8,11 +9,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	// "github.com/go-chi/chi/v5"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
+
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 type AccountHandler struct {
@@ -20,20 +27,67 @@ type AccountHandler struct {
 	transactionService *service.TransactionService
 	accountService     *service.AccountService
 	bankService        *service.BankService
+	redis              *redis.Client
 }
 
-func NewAccountHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService, bankService *service.BankService) *AccountHandler {
+func NewAccountHandler(mux *http.ServeMux, transactionService *service.TransactionService, accountService *service.AccountService, bankService *service.BankService, redis *redis.Client) *AccountHandler {
 	return &AccountHandler{
 		mux:                mux,
 		accountService:     accountService,
 		transactionService: transactionService,
 		bankService:        bankService,
+		redis:              redis,
 	}
 }
 
 func (t *AccountHandler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		account, err := t.accountService.GetAllAccount()
+		//{service}:{domain}:{identifier}
+		key := "account:account:get_all"
+		dataCached, err := t.redis.Get(r.Context(), key).Result()
+		var accounts = []models.Account{}
+
+		if err == redis.Nil {
+			accounts, err = t.accountService.GetAllAccount()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: "error",
+					Data:    err.Error(),
+				})
+				return
+			}
+
+			data, _ := json.Marshal(accounts)
+			t.redis.Set(r.Context(), key, data, 5*time.Minute)
+
+		} else if err != nil {
+			fmt.Printf("unable to GET data from redis. error: %v\n", err)
+			accounts, err = t.accountService.GetAllAccount()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: "error",
+					Data:    err.Error(),
+				})
+				return
+			}
+		} else {
+			// cache hit → unmarshal
+			if err := json.Unmarshal([]byte(dataCached), &accounts); err != nil {
+				fmt.Printf("unable to unmarshal cached data: %v\n", err)
+				accounts, err = t.accountService.GetAllAccount()
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(dto.BaseResponse{
+						Message: "error",
+						Data:    err.Error(),
+					})
+					return
+				}
+			}
+		}
+
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(dto.BaseResponse{
@@ -46,13 +100,15 @@ func (t *AccountHandler) Get() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.BaseResponse{
 			Message: "succes",
-			Data:    account,
+			Data:    accounts,
 		})
 	}
 }
 
 func (t *AccountHandler) GetById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		context, span := tracer.Start(r.Context(), "account.handler.get-by-id")
+		defer span.End()
 		id := getIDFromContext(r)
 		if id == "" {
 			w.WriteHeader(http.StatusBadRequest)
@@ -60,7 +116,7 @@ func (t *AccountHandler) GetById() http.HandlerFunc {
 		}
 		fmt.Print(id)
 		// log.Fatal(id)
-		account, err := t.accountService.GetAccountById(id)
+		account, err := t.accountService.GetAccountById(context, id)
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -79,8 +135,13 @@ func (t *AccountHandler) GetById() http.HandlerFunc {
 	}
 }
 
+var tracer trace.Tracer = otel.Tracer("bank-service")
+
 func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, span := tracer.Start(r.Context(), "AccountHandler")
+		traceId := span.SpanContext().TraceID().String()
+		defer span.End()
 		var acc models.Account
 
 		body, err := io.ReadAll(r.Body)
@@ -106,42 +167,25 @@ func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 			return
 		}
 
-		_, err = t.bankService.GetById(acc.BankID.String())
+		result, err := t.accountService.CreateAcc(ctx, &acc)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Bank ID doesnt exists",
-			})
-			return
-		}
+			if appErr, ok := err.(*dto.ErrorResponse); ok {
+				w.WriteHeader(appErr.Code)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: appErr.Message,
+				})
+				return
+			}
 
-		existing, err := t.accountService.GetAccountByAccNumber(acc.AccountNumber)
-		if err == nil && existing != nil {
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Account with this number already exists",
-			})
-			return
-		}
-
-		if acc.Balance <= 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Balance cant be lower than 0",
-				// Data:    err.Error(),
-			})
-			return
-		}
-
-		result, err := t.accountService.CreateAcc(&acc)
-		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "error",
-				Data:    err.Error(),
-			})
 			return
 		}
+
+		config.Log.Info("account created",
+			zap.String("trace_id", traceId),
+		)
+
+		// server.AccountCreatedCounter.Add(r.Context(), 1)
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(dto.BaseResponse{
@@ -153,6 +197,8 @@ func (t *AccountHandler) CreateAcc() http.HandlerFunc {
 
 func (t *AccountHandler) UpdateAcc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		context, span := tracer.Start(r.Context(), "account.handler.update-acc")
+		defer span.End()
 		// r.PathValue(r)
 		var req struct {
 			AccountHolder string `json:"account_holder"`
@@ -190,38 +236,15 @@ func (t *AccountHandler) UpdateAcc() http.HandlerFunc {
 			return
 		}
 
-		existing, err := t.accountService.GetAccountById(idRaw)
-		if err != nil || existing == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		if existing.AccountHolder != req.AccountHolder {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Account Holder not Match with the Data",
-				// Data:    err.Error(),
-			})
-			return
-		}
-
-		if req.Balance <= 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Balance cant be lower than 0",
-				// Data:    err.Error(),
-			})
-			return
-		}
-
-		result, err := t.accountService.UpdateAcc(id, req.AccountHolder, req.Balance)
+		result, err := t.accountService.UpdateAcc(context, id, req.AccountHolder, req.Balance)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "error",
-				Data:    err.Error(),
-			})
-			return
+			if appErr, ok := err.(*dto.ErrorResponse); ok {
+				w.WriteHeader(appErr.Code)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: appErr.Message,
+				})
+				return
+			}
 		}
 
 		json.NewEncoder(w).Encode(dto.BaseResponse{
@@ -233,18 +256,23 @@ func (t *AccountHandler) UpdateAcc() http.HandlerFunc {
 
 func (t *AccountHandler) DeleteAcc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		context, span := tracer.Start(r.Context(), "account.handler.delete-acc")
+		defer span.End()
 		id := r.URL.Path[len("/accounts/"):]
 		if id == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		err := t.accountService.DeleteAcc(id)
+		err := t.accountService.DeleteAcc(context, id)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Account with this id doesnt exists",
-			})
+			if appErr, ok := err.(*dto.ErrorResponse); ok {
+				w.WriteHeader(appErr.Code)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: appErr.Message,
+				})
+				return
+			}
 		}
 
 		w.WriteHeader(http.StatusCreated)
@@ -257,6 +285,8 @@ func (t *AccountHandler) DeleteAcc() http.HandlerFunc {
 
 func (t *AccountHandler) GetHistory() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		context, span := tracer.Start(r.Context(), "account.handler.get-history")
+		defer span.End()
 		idRaw := getIDFromContext(r)
 		if idRaw == "" {
 			w.WriteHeader(http.StatusBadRequest)
@@ -265,9 +295,6 @@ func (t *AccountHandler) GetHistory() http.HandlerFunc {
 		if idx := strings.Index(idRaw, "/"); idx != -1 {
 			idRaw = idRaw[:idx]
 		}
-
-		fmt.Print(idRaw)
-		// log.Fatal(idRaw)
 
 		id, err := uuid.Parse(idRaw)
 		if err != nil {
@@ -278,31 +305,64 @@ func (t *AccountHandler) GetHistory() http.HandlerFunc {
 			})
 			return
 		}
+		key := "account:transfer:get_history"
+		dataCached, err := t.redis.Get(r.Context(), key).Result()
+		var transfers = []models.Transaction{}
 
-		_, err = t.accountService.GetAccountById(idRaw)
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "Account doesnt exist",
-				Data:    err.Error(),
-			})
-			return
+		if err == redis.Nil {
+			transfers, err = t.transactionService.GetHistory(context, id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: "error",
+					Data:    err.Error(),
+				})
+				return
+			}
+
+			data, _ := json.Marshal(transfers)
+			t.redis.Set(r.Context(), key, data, 5*time.Minute)
+
+		} else if err != nil {
+			fmt.Printf("unable to GET data from redis. error: %v\n", err)
+			transfers, err = t.transactionService.GetHistory(context, id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: "error",
+					Data:    err.Error(),
+				})
+				return
+			}
+		} else {
+			// cache hit → unmarshal
+			if err := json.Unmarshal([]byte(dataCached), &transfers); err != nil {
+				fmt.Printf("unable to unmarshal cached data: %v\n", err)
+				transfers, err = t.transactionService.GetHistory(context, id)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(dto.BaseResponse{
+						Message: "error",
+						Data:    err.Error(),
+					})
+					return
+				}
+			}
 		}
-
-		histories, err := t.transactionService.GetHistory(id)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(dto.BaseResponse{
-				Message: "error",
-				Data:    err.Error(),
-			})
-			return
+			if appErr, ok := err.(*dto.ErrorResponse); ok {
+				w.WriteHeader(appErr.Code)
+				json.NewEncoder(w).Encode(dto.BaseResponse{
+					Message: appErr.Message,
+				})
+				return
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.BaseResponse{
 			Message: "Transaction History Successfully Fetched",
-			Data:    histories,
+			Data:    transfers,
 		})
 	}
 }
